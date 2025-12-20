@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from .schemas import ScanRequest, ScanResponse
 
 router = APIRouter(prefix="/v1", tags=["scan"])

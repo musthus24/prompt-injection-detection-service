@@ -1,0 +1,50 @@
+What the service does
+
+This service is a backend security middleware designed to analyze user-submitted prompts before they are processed by large
+language models. It is intended to be integrated into LLM-powered applications as an advisory layer that assesses the likelihood
+of prompt injection or instruction manipulation attempts. The service is intended to be called prior to LLM execution as part of
+a request validation or safety pipeline.
+
+Given a prompt, the service performs lightweight detection and returns a structured risk assessment including a decision 
+classification and confidence score. The service does not directly block requests, instead, it provides signals that upstream 
+systems can use to allow, flag, rate-limit, or route prompts for additional review as part of a broader defense-in-depth strategy.
+
+
+What it does not do?
+
+This service explicitly does not:
+- Act as a comprehensive content moderation or policy enforcement system
+- Guarantee detection of all prompt injection or adversarial techniques
+- Perform real-time streaming analysis or token-level interception
+- Store or replay raw user prompts by default
+- Replace human review or downstream safety controls
+- Protect against highly adaptive or novel attacks without model updates
+-The service does not currently provide human-readable explanations for detection decisions, as explainability is
+ deferred in favor of accuracy and robustness.
+
+The service is designed to provide probabilistic risk signals, not absolute judgments.
+
+
+High-level request and response flow:
+
+1. A client application submits a prompt to the /v1/scan endpoint
+2. The service validates input size and schema
+3. The prompt is analyzed by the detection component
+4. A risk assessment is generated
+5. A structured response is returned to the client
+6. No raw prompt content is persisted by default
+
+
+POST /v1/scan API contract:
+
+Request{
+  "prompt": "string (required, max length enforced)"
+}
+
+Response{
+  "decision": "allow | review | high_risk",
+  "risk_score": 0.0,
+  "model_version": "string"
+}
+
+

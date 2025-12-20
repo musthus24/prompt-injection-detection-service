@@ -1,0 +1,36 @@
+Threat Model - Prompt Scan Service
+
+1. Assets
+    - User data (PII)
+    - Trust and safety posture of the upstream app
+    - Model artifacts (prevent unauthorized access / extraction)
+    - Availability of the scanning service (resilience against abuse)
+
+2. Adversaries
+    - Malicious end users attempting prompt injection
+    - Automated abuse (bots probing endpoints)
+    - Curious users trying to reverse-engineer the detector
+    - Internal misuse (over-logging, mishandling secrets)
+
+3. Attack vectors
+    - Instruction override attempts (e.g., “ignore previous instructions”)
+    - Obfuscation techniques (encoding, spacing, unicode, paraphrasing)
+    - Prompt chaining (multi-step manipulation)
+    - Role-play jailbreaks / Role manipulation (pretend/system prompt simulation)
+    - Probing attacks (many queries to learn detector behavior)
+    - Automated probing or fuzzing to infer detector behavior and thresholds
+    - Payload abuse (oversized inputs, high request volume)
+
+4. Detection points
+    - Input length and structure
+    - Common injection terminology
+    - Detector score thresholds
+    - Timing/volume anomalies (metrics later)
+    - Lexical and structural prompt features associated with known injection patterns
+
+5. Known blind spots
+    - Novel/unknown jailbreak styles may evade detection (detection is limited to known and modeled attack patterns)
+    - False positives on creative writing / security research prompts
+    - False negatives on subtle manipulation
+    - Detector drift as attacker tactics evolve
+    - Limited context visibility (single-prompt analysis without conversational history)~

@@ -1,0 +1,31 @@
+Detection Notes (MVP)
+
+What this service provides:
+- An advisory prompt-injection risk signal for LLM applications.
+- A probabilistic risk_score mapped to decisions which include: allow, review, high_risk.
+
+What gets logged (structured):
+- request_id: Correlates a scan across services without storing prompt content.
+- decision: allow/review/high_risk.
+- risk_score: numeric probability score used to derive the decision.
+- model_version: artifact version used for inference.
+- reason: internal label for why the decision was returned (e.g., threshold_mapping).
+- latency_ms: request processing latency.
+
+What we do NOT log:
+- Raw prompt content. (This is so we are not responsible to keeping user PII and other
+confidential information secure, this is a tradeoff that we have to make, if we chose to track
+raw prompt content, we would be able to use it to improve model accusracy, but this project will
+focus more on keeping the application safe (AppSec) instead of further improving the models ability
+to detect signals)
+- Any user identifiers by default.
+
+
+How an investigator would use this:
+- Aggregate decisions over time to identify spikes in high_risk traffic.
+- Use request_id to correlate with upstream service logs that may have their own privacy controls.
+- Use metrics to monitor false positive rates indirectly by tracking review/high_risk volume after deployments.
+
+Limitations:
+- This is prompt-only detection, not a complete prevention or policy enforcement system.
+- Evasion and obfuscation can reduce effectiveness.

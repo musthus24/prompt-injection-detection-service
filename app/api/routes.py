@@ -1,9 +1,10 @@
-from fastapi import APIRouter
 from app.services.detector import scan_prompt
 from .schemas import ScanRequest, ScanResponse
 import logging
-from fastapi import Request
 from app.core.metrics import SCAN_REQUESTS_TOTAL
+from app.security.jwt import verify_token
+from fastapi import APIRouter, Request, Depends
+
 
 
 router = APIRouter(prefix="/v1", tags=["scan"])
@@ -12,7 +13,7 @@ logger = logging.getLogger("scan")
 
 
 @router.post("/scan", response_model=ScanResponse)
-def scan(req: ScanRequest, request: Request):
+def scan(req: ScanRequest, request: Request, subject: str = Depends(verify_token),):
     prompt = req.prompt
     decision, risk_score, model_version = scan_prompt(prompt)
     risk_score = float(risk_score)

@@ -1,3 +1,6 @@
+from app.security.jwt import create_access_token
+
+
 def _extract_metric_value(metrics_text: str, metric_name: str) -> float:
     """
     Extracts the first numeric value for a metric line like:
@@ -8,7 +11,6 @@ def _extract_metric_value(metrics_text: str, metric_name: str) -> float:
         if line.startswith("#"):
             continue
         if line.startswith(metric_name):
-            # Split on whitespace and take the last token as the value
             parts = line.strip().split()
             if len(parts) >= 2:
                 return float(parts[-1])
@@ -16,10 +18,14 @@ def _extract_metric_value(metrics_text: str, metric_name: str) -> float:
 
 
 def test_metrics_increment_after_scan(client):
+    token = create_access_token("test-client")
     before_text = client.get("/metrics").text
     before_latency_count = _extract_metric_value(before_text, "scan_request_latency_seconds_count")
 
-    request = client.post("/v1/scan", json={"prompt": "hello"})
+    request = client.post("/v1/scan",
+    json = {"prompt": "hello"},
+    headers={"Authorization": f"Bearer {token}"},
+    )
     assert request.status_code == 200
 
     after_text = client.get("/metrics").text

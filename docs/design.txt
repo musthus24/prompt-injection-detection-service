@@ -1,50 +1,180 @@
-What the service does
+LLM Security Gateway
+Prompt + RAG Context Scanning + Policy Enforcement
+Design Document (MVP)
 
-This service is a backend security middleware designed to analyze user-submitted prompts before they are processed by large
-language models. It is intended to be integrated into LLM-powered applications as an advisory layer that assesses the likelihood
-of prompt injection or instruction manipulation attempts. The service is intended to be called prior to LLM execution as part of
-a request validation or safety pipeline.
+Overview
+The LLM Security Gateway is a backend service that sits in front of downstream LLM execution (and optionally retrieval) to detect prompt injection, indirect prompt injection via RAG, and policy violations before any model or tool execution occurs.
+It acts as a trust boundary and enforcement point, producing a policy decision and enforcing it consistently across chat and tool execution paths.
 
-Given a prompt, the service performs lightweight detection and returns a structured risk assessment including a decision 
-classification and confidence score. The service does not directly block requests, instead, it provides signals that upstream 
-systems can use to allow, flag, rate-limit, or route prompts for additional review as part of a broader defense-in-depth strategy.
+What the Service Does
+The service provides the following capabilities:
+- Validate request schemas and enforce size limits at the API boundary
+- Scan user prompts and messages for prompt injection and manipulation signals
+- Scan retrieved RAG context chunks to mitigate indirect prompt injection
+- Produce a policy decision (ALLOW / REQUIRE_HUMAN_REVIEW / BLOCK)
+- Enforce policy decisions in the /v1/chat endpoint
+- Emit privacy-aware telemetry (decision, score, reasons, latency)
 
+Operational modes:
+Enforcing mode (primary):
+- /v1/chat applies policy decisions and controls downstream execution
 
-What it does not do?
+Advisory mode (legacy):
+- /v1/scan returns risk signals only, without enforcement
 
-This service explicitly does not:
-- Act as a comprehensive content moderation or policy enforcement system
-- Guarantee detection of all prompt injection or adversarial techniques
-- Perform real-time streaming analysis or token-level interception
-- Store or replay raw user prompts by default
-- Replace human review or downstream safety controls
-- Protect against highly adaptive or novel attacks without model updates
--The service does not currently provide human-readable explanations for detection decisions, as explainability is
- deferred in favor of accuracy and robustness.
+What the Service Does Not Do
+Explicit non-goals:
+- No guarantees against novel or adaptive attacks
+- Not a complete content moderation system
+- No token-level or streaming interception (initially)
+- No raw prompt or retrieved context storage by default
+- Does not clean or repair poisoned knowledge bases
+- Only reduces runtime impact of unsafe content
 
-The service is designed to provide probabilistic risk signals, not absolute judgments.
+Trust Boundaries
+- Client input is fully untrusted
+- Retriever output is semi-trusted and treated as an indirect injection surface
+- Only content that passes policy enforcement is forwarded to the LLM
+- Logs and telemetry form a privacy boundary and must avoid sensitive data
 
+Policy Contract
 
-High-level request and response flow:
+Decisions (Risk Classification):
+- ALLOW
+- REQUIRE_HUMAN_REVIEW
+- BLOCK
 
-1. A client application submits a prompt to the /v1/scan endpoint
-2. The service validates input size and schema
-3. The prompt is analyzed by the detection component
-4. A risk assessment is generated
-5. A structured response is returned to the client
-6. No raw prompt content is persisted by default
+Action Taken (Actual Enforcement Outcome):
+- PROCEEDED_NORMAL (LLM called, RAG allowed if enabled)
+- PROCEEDED_NO_CONTEXT (LLM called, RAG disabled, no retrieved context forwarded)
+- RETURNED_REVIEW (No LLM call, caller must handle review flow)
+- BLOCKED (No downstream calls, request rejected)
 
+Review Fallback Behavior:
+When decision = REQUIRE_HUMAN_REVIEW:
+- review_fallback = "none" -> action_taken = RETURNED_REVIEW
+- review_fallback = "respond_without_context" -> action_taken = PROCEEDED_NO_CONTEXT
 
-POST /v1/scan API contract:
+Decision Object:
+- decision: ALLOW | REQUIRE_HUMAN_REVIEW | BLOCK
+- action_taken: PROCEEDED_NORMAL | PROCEEDED_NO_CONTEXT | RETURNED_REVIEW | BLOCKED
+- risk_score: float (0.0 – 1.0)
+- reasons: list of strings (human-readable, non-sensitive)
+- model_version: string
 
-Request{
+Request / Response Flows
+
+Scan-Only (for advisory)
+Endpoint: POST /v1/scan
+Flow:
+- Validate input schema and size
+- Scan prompt for risk signals
+- Return risk classification
+- Do not persist raw prompt by default
+- No enforcement is performed
+
+Chat Enforcement (Primary)
+Endpoint: POST /v1/chat
+Flow:
+- Authenticate request
+- Validate schema and size
+- Scan user messages
+- Retrieve RAG context
+- Scan retrieved context chunks
+- Compute policy decision
+- Enforce decision:
+  - BLOCK -> return 403, no downstream calls
+  - REQUIRE_HUMAN_REVIEW -> enforce review fallback behavior
+  - ALLOW -> proceed normally
+- Emit telemetry
+
+API Contracts
+
+POST /v1/scan (Legacy Advisory)
+Request:
+{
   "prompt": "string (required, max length enforced)"
 }
 
-Response{
+Response:
+{
   "decision": "allow | review | high_risk",
   "risk_score": 0.0,
   "model_version": "string"
 }
 
+POST /v1/chat (Enforcement)
+Request:
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "..."
+    }
+  ],
+  "rag": {
+    "enabled": false,
+    "query": "optional",
+    "top_k": 5
+  },
+  "review_fallback": "none | respond_without_context"
+}
 
+Response (successful):
+{
+  "request_id": "uuid",
+  "decision": "ALLOW | REQUIRE_HUMAN_REVIEW | BLOCK",
+  "risk_score": 0.0,
+  "reasons": ["..."],
+  "action_taken": "PROCEEDED_NORMAL | PROCEEDED_NO_CONTEXT | RETURNED_REVIEW | BLOCKED",
+  "llm_output": "...",
+  "model_version": "string"
+}
+
+Block error response:
+{
+  "request_id": "uuid",
+  "error": {
+    "code": "POLICY_BLOCK",
+    "message": "Request blocked by security policy"
+  }
+}
+
+Controls (MVP)
+- Pydantic schema validation
+- Message count and content length limits
+- Authentication required for /v1/chat
+- Rate limiting by API key and/or IP
+- Timeouts and caps for retrieval and LLM calls
+- Safe defaults for all optional features
+
+Telemetry and Privacy
+- Log minimal, non-sensitive metadata only
+- Do not log raw prompts or retrieved context by default
+
+Logged fields:
+- request_id
+- decision
+- action_taken
+- risk_score
+- reasons (sanitized, non-sensitive)
+- latency
+- caller_id
+- rate-limit events
+
+Tool Execution Boundary (Capability Gating)
+The gateway enforces a strict boundary for tool execution to prevent unsafe or unintended operations initiated by downstream LLMs.
+Tools are treated as named capabilities with strict schemas and are executed only through the gateway.
+For this project, tools are implemented as stubs to demonstrate enforcement rather than real integrations.
+
+Enforcement rules:
+- If decision != ALLOW, tool execution is disabled
+- If action_taken != PROCEEDED_NORMAL, tool execution is disabled
+- Only allowlisted tools may be executed per request
+- Tool inputs must validate against predefined schemas
+
+Limitations (Explicit)
+- False positives and false negatives are expected
+- Retrieval quality and data poisoning affect outcomes
+- Misconfiguration by integrators can reduce effectiveness
+- Security posture degrades if enforcement is bypassed downstream

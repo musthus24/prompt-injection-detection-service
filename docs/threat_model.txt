@@ -1,36 +1,106 @@
-Threat Model - Prompt Scan Service
+Threat Model: LLM Security Gateway (Prompt + RAG Context Scanning and Policy Enforcement)
 
 1. Assets
-    - User data (PII)
-    - Trust and safety posture of the upstream app
-    - Model artifacts (prevent unauthorized access / extraction)
-    - Availability of the scanning service (resilience against abuse)
+
+    - User submitted content
+        Prompts, uploaded text, and any user identifiers included in the request (PII).
+    - Retrieved context and knowledge profile that is in the model.
+        Documents and chunks fetched from retrieval systems (vector DB, search, internal knowledge base). This is a primary indirect injection surface
+        since it is not controlled directly by the users prompt, but can lead to an injection attack.
+    - Application secrets and sensitive data
+        API keys, system prompts, internal policies, configuration, tokens, and any confidential data that could be present in retrieved context.
+    - Policy logic and enforcement correctness
+        The decision logic that outputs allow, redact, or block. If it can be bypassed, the whole system fails since this woudl lead to potential exploits.
+    - Telemetry and audit evidence
+        Logs, metrics, traces, and incident evidence that are needed for detection and investigation, without leaking sensitive content.
+    - Service availability and cost controls
+        Preventing abuse that causes outages or runaway upstream costs (retrieval, LLM calls, storage).
+
 
 2. Adversaries
-    - Malicious end users attempting prompt injection
-    - Automated abuse (bots probing endpoints)
-    - Curious users trying to reverse-engineer the detector
-    - Internal misuse (over-logging, mishandling secrets)
+
+    - Malicious end users
+        Try to jailbreak, exfiltrate, or manipulate downstream behavior via direct prompts.
+    - Indirect attackers via content poisoning
+        Insert malicious instructions into documents that will later be retrieved (known as RAG poisoning).
+    - Automated probing and abuse bots
+        Attempt to learn thresholds, bypass detection, or trigger expensive flows at scale.
+    - Compromised integrator or client
+        A legitimate caller (valid API key) behaves maliciously or is compromised and uses the gateway to attack upstream systems.
+    - Curious or skilled reverse engineers
+        Try to infer or learn the detection model, prompts, and policies to craft evasive inputs.
+    - Insiders and operational mistakes
+        Misconfiguration, excessive logging, leaked tokens, or debugging shortcuts that create security exposure.
+    - Accidental user queries
+        Abuse doesn't have to be intentional or planned, we want to make sure abuse is prevented in all cases!
+
 
 3. Attack vectors
-    - Instruction override attempts (e.g., “ignore previous instructions”)
-    - Obfuscation techniques (encoding, spacing, unicode, paraphrasing)
-    - Prompt chaining (multi-step manipulation)
-    - Role-play jailbreaks / Role manipulation (pretend/system prompt simulation)
-    - Probing attacks (many queries to learn detector behavior)
-    - Automated probing or fuzzing to infer detector behavior and thresholds
-    - Payload abuse (oversized inputs, high request volume)
+
+    Direct prompt injection:
+    - Instruction override and role confusion (system prompt coercion, “ignore previous instructions” patterns)
+    - Prompt leakage attempts (trying to extract system prompt, policies, hidden chain instructions)
+    - Data exfiltration attempts (trying to get secrets from tools, context, or environment)
+
+    Indirect prompt injection (RAG-specific):
+    - Malicious instructions embedded inside retrieved chunks (hidden directives like “when you see this, do X”)
+    - Context manipulation through formatting tricks (base64, obfuscation, unicode confusables, “quoted text” abuse)
+    - Poisoning the knowledge base so retrieval returns attacker content at high similarity
+
+    Gateway and API abuse:
+    - Bypass of enforcement by calling internal endpoints directly (or using unprotected routes)
+    - Schema abuse (oversized inputs, weird types, nested structures to crash parsers)
+    - Replay attacks or request tampering (if signing is used later)
+    - Denial of service through high request rates or intentionally expensive payloads
+
+    Upstream dependency abuse:
+    - Triggering expensive LLM calls to increase cost
+    - Forcing high-retrieval fanout or large context windows
+    - Exploiting timeout behavior to create partial enforcement gaps
 
 4. Detection points
-    - Input length and structure
-    - Common injection terminology
-    - Detector score thresholds
-    - Timing/volume anomalies (metrics later)
-    - Lexical and structural prompt features associated with known injection patterns
 
-5. Known blind spots
-    - Novel/unknown jailbreak styles may evade detection (detection is limited to known and modeled attack patterns)
-    - False positives on creative writing / security research prompts
-    - False negatives on subtle manipulation
-    - Detector drift as attacker tactics evolve
-    - Limited context visibility (single-prompt analysis without conversational history)~
+    Request validation at the boundary:
+    - Strict schema validation (types, required fields)
+    - Size limits (prompt length, number of messages, context window, metadata sizes)
+    - Allowed content types and safe defaults
+
+    Authentication and authorization checks:
+    - API key or auth token required for /chat
+    - Role or client permissions if multiple callers exist
+
+    Scanning user prompt content:
+    - Classifier score and heuristic flags (known injection phrases, role coercion patterns)
+    - Obfuscation detection (encoding, unusual unicode, delimiter abuse)
+
+    Scanning retrieved context:
+    - Separate scan on retrieved chunks before they reach the LLM
+    - Redaction or dropping of suspicious chunks
+
+    Policy enforcement decision:
+    - allow, redact, block based on combined risk (user prompt + retrieved context + caller identity + rate signals)
+
+    Abuse and anomaly signals:
+    - Rate limiting events, burst patterns, repeated near-threshold 
+    - High similarity repeated probes (same prompt with small variations)
+
+    Telemetry hooks:
+    - Structured logs and metrics for decision counts, scores, latency, request volume
+    - Correlation IDs for incident investigation without storing raw prompts by default
+
+5. Known blind spots and limitations
+
+    - Adaptive attacks
+        Attackers can iterate until they find bypasses, especially when they can observe downstream behavior.
+    - Novel jailbreak styles
+        Detection will lag new tactics. Heuristics help, but cannot guarantee coverage.
+    - False positives
+        Security research prompts and creative content can trigger high-risk signals.
+    - False negatives
+        Subtle manipulation, multi-turn setup, or semantic attacks may pass with low scores.
+    - RAG uncertainty
+        Retrieval can surface partial context, misleading chunks, or attacker-controlled content without obvious markers.
+    - Policy misconfiguration
+        If integrators ignore “block” or do not properly apply “redact,” the gateway becomes advisory rather than enforcing.
+    - Privacy tradeoffs
+        Not storing raw prompts reduces risk but also reduces forensic depth. You must rely on hashed fingerprints, metadata, and sampling controls.

@@ -11,11 +11,11 @@ class ChatMessage(BaseModel):
 class RagConfig(BaseModel):
     enabled: bool = False
     query: Optional[str] = None
-    top_k: int = Field(default=5, ge=1, le=20)
+    top_k: int = Field(default = 5, ge = 1, le = 20)
 
 class ChatRequest(BaseModel):
     messages: List[ChatMessage] = Field(..., min_length=1, max_length=50)
-    rag: RagConfig = Field(default_factory=RagConfig)
+    rag: RagConfig = Field(default_factory = RagConfig)
     review_fallback: Literal["none", "respond_without_context"] = "none"
 
 class ChatResponse(BaseModel):
@@ -23,9 +23,9 @@ class ChatResponse(BaseModel):
     decision: Literal["ALLOW", "REQUIRE_HUMAN_REVIEW", "BLOCK"]
     action_taken: Literal["PROCEEDED_NORMAL", "PROCEEDED_NO_CONTEXT", "RETURNED_REVIEW", "BLOCKED"]
     risk_score: float
-    reasons: List[str] = Field(default_factory=list)
+    reasons: List[str] = Field(default_factory = list)
     llm_output: Optional[str] = None
-    model_verdsion: str
+    model_version: str
 
 
 class ScanRequest(BaseModel):
@@ -35,5 +35,3 @@ class ScanResponse(BaseModel):
     decision: str
     risk_score: float
     model_version: str
-
-

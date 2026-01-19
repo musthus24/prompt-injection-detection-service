@@ -3,7 +3,10 @@ import logging
 from app.core.metrics import SCAN_REQUESTS_TOTAL
 from app.security.jwt import verify_token
 from fastapi import APIRouter, Request, Depends, HTTPException
-from .schemas import ScanRequest, ScanResponse, ChatRequest, ChatResponse
+from .schemas import ScanRequest, ScanResponse, ChatRequest, ChatResponse, ToolResult
+from pydantic import ValidationError
+from app.tools.factory import build_default_registry
+from app.tools.registry import UnknownToolError
 
 
 
@@ -67,7 +70,7 @@ def chat(req: ChatRequest, request: Request, subject: str = Depends(verify_token
 
     scan_decision, risk_score, model_version = scan_prompt(combined)
     risk_score = float(risk_score)
-
+    tool_result = None
     decision, action_taken, reasons = map_scan_to_gateway_policy(scan_decision, req.review_fallback)
 
     if decision == "BLOCK":
@@ -114,8 +117,37 @@ def chat(req: ChatRequest, request: Request, subject: str = Depends(verify_token
             reasons=reasons,
             llm_output=None,
             model_version=model_version,
-        )
+            tool_result=tool_result,
 
+        )
+    if req.tool_request is not None:
+        if decision != "ALLOW" or action_taken != "PROCEEDED_NORMAL":
+            tool_result = ToolResult(
+                name=req.tool_request.name,
+                executed=False,
+                reason="policy_denied",
+            )
+        else:
+            registry = build_default_registry()
+            try:
+                output = registry.execute(req.tool_request.name, req.tool_request.args)
+                tool_result = ToolResult(
+                    name=req.tool_request.name,
+                    executed=True,
+                    output=output,
+                )
+            except UnknownToolError:
+                tool_result = ToolResult(
+                    name=req.tool_request.name,
+                    executed=False,
+                    reason="unknown_tool",
+                )
+            except ValidationError:
+                tool_result = ToolResult(
+                    name=req.tool_request.name,
+                    executed=False,
+                    reason="invalid_args",
+                )
 
     llm_output = "stubbed_response"
 
@@ -141,4 +173,5 @@ def chat(req: ChatRequest, request: Request, subject: str = Depends(verify_token
         reasons=reasons,
         llm_output=llm_output,
         model_version=model_version,
+        tool_result=tool_result,
     )

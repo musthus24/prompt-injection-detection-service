@@ -19,7 +19,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         request.state.latency_ms = elapsed_ms
         response.headers["X-Request-ID"] = request_id
 
-        # Record latency only for the scan endpoint
         if request.url.path == "/v1/scan":
             SCAN_LATENCY_SECONDS.observe(elapsed_ms / 1000.0)
 

@@ -23,4 +23,3 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             SCAN_LATENCY_SECONDS.observe(elapsed_ms / 1000.0)
 
         return response
-

@@ -23,14 +23,17 @@ app.add_middleware(RequestContextMiddleware)
 
 app.include_router(scan_router)
 
+
 @app.on_event("startup")
 def validate_security_config():
     get_jwt_secret()
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
+
 @app.get("/metrics")
 def metrics():
-    return Response(generate_latest(), media_type = CONTENT_TYPE_LATEST)
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

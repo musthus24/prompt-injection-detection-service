@@ -16,6 +16,7 @@ class BaseTool:
       - an ArgsModel (Pydantic schema)
       - a run() method that returns a dict
     """
+
     name: str
     ArgsModel: Type[BaseModel]
 
@@ -28,6 +29,7 @@ class ToolRegistry:
     Central allowlist. Only tools registered here can run.
     Also enforces strict args validation using each tool's ArgsModel.
     """
+
     def __init__(self) -> None:
         self._tools: Dict[str, BaseTool] = {}
 
@@ -40,8 +42,6 @@ class ToolRegistry:
 
         tool = self._tools[name]
 
-
         args_obj = tool.ArgsModel.model_validate(raw_args)
 
         return tool.run(args_obj)
-

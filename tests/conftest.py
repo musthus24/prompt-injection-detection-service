@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-
 @pytest.fixture()
 def client():
     app.dependency_overrides[routes.verify_token] = lambda: "test-caller-id"

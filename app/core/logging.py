@@ -11,8 +11,6 @@ def configure_logging() -> None:
         return
 
     handler = logging.StreamHandler()
-    formatter = jsonlogger.JsonFormatter(
-        "%(asctime)s %(levelname)s %(name)s %(message)s"
-    )
+    formatter = jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     handler.setFormatter(formatter)
     logger.addHandler(handler)

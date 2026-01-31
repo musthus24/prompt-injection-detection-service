@@ -23,7 +23,6 @@ def test_chat_tool_executes_on_allow(client, monkeypatch):
 
 
 def test_chat_tool_denied_on_review_proceeded_no_context(client, monkeypatch):
-
     monkeypatch.setattr(routes, "scan_prompt", lambda _prompt: ("review", 0.50, "test-model"))
 
     payload = {
@@ -46,7 +45,6 @@ def test_chat_tool_denied_on_review_proceeded_no_context(client, monkeypatch):
 
 def test_chat_block_short_circuits_tool_validation(client, monkeypatch):
     monkeypatch.setattr(routes, "scan_prompt", lambda _prompt: ("high_risk", 0.99, "test-model"))
-
 
     payload = {
         "messages": [{"role": "user", "content": "definitely bad"}],

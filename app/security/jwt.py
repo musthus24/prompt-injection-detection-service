@@ -1,8 +1,9 @@
+import os
 from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import os
+from jose import JWTError, jwt
 
 
 def get_jwt_secret() -> str:
@@ -10,6 +11,7 @@ def get_jwt_secret() -> str:
     if not SECRET_KEY:
         raise RuntimeError("JWT_SECRET is not set")
     return SECRET_KEY
+
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -27,12 +29,13 @@ def create_access_token(subject: str) -> str:
         "exp": int(expire.timestamp()),
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,
-}
+    }
 
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 
 security = HTTPBearer(auto_error=False)
+
 
 def verify_token(
     creds: HTTPAuthorizationCredentials | None = Depends(security),
@@ -60,8 +63,8 @@ def verify_token(
             token,
             SECRET_KEY,
             algorithms=[ALGORITHM],
-            issuer = JWT_ISSUER,
-            audience = JWT_AUDIENCE,
+            issuer=JWT_ISSUER,
+            audience=JWT_AUDIENCE,
         )
         subject = payload.get("sub")
         if not subject:

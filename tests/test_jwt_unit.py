@@ -1,7 +1,14 @@
 import time
+
 from jose import jwt
 
-from app.security.jwt import create_access_token, get_jwt_secret, ALGORITHM, JWT_AUDIENCE, JWT_ISSUER
+from app.security.jwt import (
+    ALGORITHM,
+    JWT_AUDIENCE,
+    JWT_ISSUER,
+    create_access_token,
+    get_jwt_secret,
+)
 
 
 def test_create_access_token_contains_expected_claims():
@@ -11,14 +18,15 @@ def test_create_access_token_contains_expected_claims():
         token,
         SECRET_KEY,
         algorithms=[ALGORITHM],
-        issuer = JWT_ISSUER,
-        audience = JWT_AUDIENCE,
+        issuer=JWT_ISSUER,
+        audience=JWT_AUDIENCE,
     )
     assert payload["sub"] == "unit-test-client"
     assert "iat" in payload
     assert "exp" in payload
 
     assert payload["exp"] > int(time.time())
+
 
 def test_tampered_token_fails_verification():
     SECRET_KEY = get_jwt_secret()

@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+
 from app.tools.factory import build_default_registry
 from app.tools.registry import UnknownToolError
 

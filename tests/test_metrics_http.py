@@ -22,9 +22,10 @@ def test_metrics_increment_after_scan(client):
     before_text = client.get("/metrics").text
     before_latency_count = _extract_metric_value(before_text, "scan_request_latency_seconds_count")
 
-    request = client.post("/v1/scan",
-    json = {"prompt": "hello"},
-    headers={"Authorization": f"Bearer {token}"},
+    request = client.post(
+        "/v1/scan",
+        json={"prompt": "hello"},
+        headers={"Authorization": f"Bearer {token}"},
     )
     assert request.status_code == 200
 

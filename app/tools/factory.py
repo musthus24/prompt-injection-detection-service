@@ -1,5 +1,5 @@
 from .registry import ToolRegistry
-from .stubs import WebSearchTool, PdfReadTool
+from .stubs import PdfReadTool, WebSearchTool
 
 
 def build_default_registry() -> ToolRegistry:

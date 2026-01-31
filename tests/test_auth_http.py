@@ -1,6 +1,8 @@
 import os
+
 os.environ.setdefault("JWT_SECRET", "test-secret-do-not-use-in-prod")
 from app.security.jwt import create_access_token
+
 
 def test_scan_requires_auth(client_no_auth):
     response = client_no_auth.post("/v1/scan", json={"prompt": "hello"})

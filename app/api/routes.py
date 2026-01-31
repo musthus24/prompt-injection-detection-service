@@ -1,14 +1,15 @@
-from app.services.detector import scan_prompt
 import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import ValidationError
+
 from app.core.metrics import SCAN_REQUESTS_TOTAL
 from app.security.jwt import verify_token
-from fastapi import APIRouter, Request, Depends, HTTPException
-from .schemas import ScanRequest, ScanResponse, ChatRequest, ChatResponse, ToolResult
-from pydantic import ValidationError
+from app.services.detector import scan_prompt
 from app.tools.factory import build_default_registry
 from app.tools.registry import UnknownToolError
 
-
+from .schemas import ChatRequest, ChatResponse, ScanRequest, ScanResponse, ToolResult
 
 router = APIRouter(prefix="/v1", tags=["gateway"])
 logger = logging.getLogger("gateway")
@@ -36,8 +37,13 @@ def map_scan_to_gateway_policy(scan_decision: str, review_fallback: str):
 
     return "REQUIRE_HUMAN_REVIEW", "RETURNED_REVIEW", ["unknown_scan_decision"]
 
+
 @router.post("/scan", response_model=ScanResponse)
-def scan(req: ScanRequest, request: Request, subject: str = Depends(verify_token),):
+def scan(
+    req: ScanRequest,
+    request: Request,
+    subject: str = Depends(verify_token),
+):
     prompt = req.prompt
     decision, risk_score, model_version = scan_prompt(prompt)
     risk_score = float(risk_score)
@@ -62,10 +68,8 @@ def scan(req: ScanRequest, request: Request, subject: str = Depends(verify_token
     return ScanResponse(decision=decision, risk_score=risk_score, model_version=model_version)
 
 
-
-@router.post("/chat", response_model = ChatResponse)
+@router.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest, request: Request, subject: str = Depends(verify_token)):
-
     combined = "\n".join([m.content for m in req.messages])
 
     scan_decision, risk_score, model_version = scan_prompt(combined)
@@ -118,7 +122,6 @@ def chat(req: ChatRequest, request: Request, subject: str = Depends(verify_token
             llm_output=None,
             model_version=model_version,
             tool_result=tool_result,
-
         )
     if req.tool_request is not None:
         if decision != "ALLOW" or action_taken != "PROCEEDED_NORMAL":

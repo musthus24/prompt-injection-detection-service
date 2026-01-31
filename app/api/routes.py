@@ -1,14 +1,15 @@
-from app.services.detector import scan_prompt
 import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import ValidationError
+
 from app.core.metrics import SCAN_REQUESTS_TOTAL
 from app.security.jwt import verify_token
-from fastapi import APIRouter, Request, Depends, HTTPException
-from .schemas import ScanRequest, ScanResponse, ChatRequest, ChatResponse, ToolResult
-from pydantic import ValidationError
+from app.services.detector import scan_prompt
 from app.tools.factory import build_default_registry
 from app.tools.registry import UnknownToolError
 
-
+from .schemas import ChatRequest, ChatResponse, ScanRequest, ScanResponse, ToolResult
 
 router = APIRouter(prefix="/v1", tags=["gateway"])
 logger = logging.getLogger("gateway")

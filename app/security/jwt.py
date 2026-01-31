@@ -1,8 +1,9 @@
+import os
 from datetime import datetime, timedelta, timezone
-from jose import JWTError, jwt
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import os
+from jose import JWTError, jwt
 
 
 def get_jwt_secret() -> str:

@@ -1,7 +1,14 @@
 import time
+
 from jose import jwt
 
-from app.security.jwt import create_access_token, get_jwt_secret, ALGORITHM, JWT_AUDIENCE, JWT_ISSUER
+from app.security.jwt import (
+    ALGORITHM,
+    JWT_AUDIENCE,
+    JWT_ISSUER,
+    create_access_token,
+    get_jwt_secret,
+)
 
 
 def test_create_access_token_contains_expected_claims():

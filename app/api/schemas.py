@@ -1,5 +1,6 @@
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
-from typing import List, Literal, Any, Optional, Dict
 
 MIN_PROMPT_LEN = 1
 MAX_PROMPT_LEN = 8000

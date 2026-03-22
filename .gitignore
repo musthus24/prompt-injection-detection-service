@@ -3,3 +3,9 @@ __pycache__/
 *.pyc
 .DS_Store
 docs/dev_notes.txt
+.env
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/

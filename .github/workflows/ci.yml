@@ -23,11 +23,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Install package
+        run: pip install ".[dev,service]"
       - name: Lint
         run: |
           ruff check .
           black --check .
       - name: Tests
+        env:
+          JWT_SECRET: ci-test-secret
         run: python -m pytest -q

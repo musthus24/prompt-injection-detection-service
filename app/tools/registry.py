@@ -36,6 +36,9 @@ class ToolRegistry:
     def register(self, tool: BaseTool) -> None:
         self._tools[tool.name] = tool
 
+    def get(self, name: str) -> BaseTool | None:
+        return self._tools.get(name)
+
     def execute(self, name: str, raw_args: Dict[str, Any]) -> Dict[str, Any]:
         if name not in self._tools:
             raise UnknownToolError(f"unknown_tool:{name}")

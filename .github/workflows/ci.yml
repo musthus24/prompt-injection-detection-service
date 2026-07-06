@@ -24,7 +24,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package
-        run: pip install ".[dev,service]"
+        run: pip install ".[dev,service,mcp]"
       - name: Lint
         run: |
           ruff check .

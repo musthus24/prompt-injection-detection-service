@@ -1,0 +1,3 @@
+- write the demo script
+- run the eval harness
+- record the 90 second screen capture

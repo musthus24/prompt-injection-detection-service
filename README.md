@@ -138,6 +138,42 @@ Requests can include a `tool_request`. Security properties:
 - Tools only execute when `decision=ALLOW` and `action_taken=PROCEEDED_NORMAL`
 - For review and block outcomes, tool execution is denied
 
+## MCP security gateway
+
+**The tool boundary is the trust boundary.** A FastMCP server exposes three stubbed tools (`read_file`, `fetch_url`, `send_email`) behind an `on_call_tool` middleware that gates every call's *arguments* before the tool ever runs — this is a second, additive trust boundary alongside the `/v1/chat` one above, not a replacement for it. It's the only entrypoint to these three tools; no HTTP route exposes them.
+
+Two tracks feed one `allow | review | block` decision, first-block-wins:
+- **Deterministic structural checks** (new): path-traversal containment (`read_file`), URL scheme + resolved-IP SSRF checks (`fetch_url`), recipient allowlisting (`send_email`). Structural attacks get rules, not a probability.
+- **The existing, unmodified `Scanner`**, run only on `send_email`'s free-text `body` — the one argument that's actually natural language and the one the classifier was trained for. Tool names and structured args (paths, URLs, hosts, recipients) are never fed to it.
+
+The existing `ToolRegistry` name+schema allowlist is reused as-is (`app/tools/registry.py`) for a separate tool set (`app/tools/mcp_stubs.py`) registered via `build_mcp_registry()`; the MCP middleware sits in front of it. All three tools are stubbed — no real file reads, network fetches, or sends. `run_command` is intentionally out of scope.
+
+### Setup
+
+```bash
+pip install "prompt-injection-detector[service,mcp]"
+```
+
+### Run the server
+
+```bash
+PYTHONPATH=. python -m app.mcp.server
+```
+
+### Run the demo (one benign call allowed, one malicious call blocked)
+
+```bash
+JWT_SECRET=dev-secret PYTHONPATH=. python examples/mcp_demo.py
+```
+
+### Run the eval harness
+
+```bash
+JWT_SECRET=dev-secret PYTHONPATH=. python eval/mcp_gateway_eval.py
+```
+
+36 labeled tool calls across all four attack classes (path traversal, SSRF, exfiltration via recipient, prompt injection via body), each with benign counterexamples. Prints precision/recall/false-positive-rate plus a confusion matrix, and writes `eval/results/mcp_gateway_eval_results.{json,csv}`. Note: the `fetch_url` cases resolve real hostnames via DNS (the SSRF check inspects the *resolved* IP, not a hostname blocklist), so running the eval requires network access.
+
 ## Authentication
 
 The gateway uses JWT bearer auth. Set `JWT_SECRET` in your environment. Requests should include:
@@ -168,9 +204,12 @@ app/                            # FastAPI gateway service
 ├── api/                        # Routes and request/response schemas
 ├── security/                   # JWT auth
 ├── services/                   # Detection orchestration (wraps SDK)
-├── tools/                      # Tool registry and stub implementations
+├── tools/                      # Tool registry and stub implementations (chat + MCP)
+├── mcp/                        # MCP on_call_tool middleware, policy, checks, server
 └── core/                       # Metrics, logging, middleware
-examples/                       # Quick start examples
+mcp_sandbox/                    # Fixed sandbox dir for the read_file MCP tool
+eval/                           # MCP gateway eval harness (dataset + runner)
+examples/                       # Quick start / custom model / MCP demo scripts
 tests/                          # Unit and HTTP-level tests
 docs/                           # Design notes and threat model
 ```

@@ -178,3 +178,35 @@ Limitations (Explicit)
 - Retrieval quality and data poisoning affect outcomes
 - Misconfiguration by integrators can reduce effectiveness
 - Security posture degrades if enforcement is bypassed downstream
+
+MCP Tool-Call Boundary (new, additive)
+A second, separate trust boundary sits in front of an MCP tool server, distinct
+from the /v1/chat Tool Execution Boundary above (which gates the chat
+endpoint's inline tool_request path). This boundary gates arguments on every
+MCP tool call before the tool ever runs, via a FastMCP on_call_tool middleware.
+
+Tools (all stubbed, no real side effects):
+- read_file(path) - attack class: path traversal
+- fetch_url(url) - attack class: SSRF
+- send_email(to, body) - attack classes: data exfiltration (to) and prompt
+  injection (body)
+run_command is explicitly out of scope.
+
+Decision, per call, first block wins:
+1. Tool name in the MCP tool registry allowlist, else block (unknown_tool)
+2. Args validate against the tool's Pydantic schema, else block (schema_invalid)
+3. Deterministic structural check per tool:
+   - read_file: resolved path must be contained in the sandbox dir, else
+     block (path_escape)
+   - fetch_url: scheme must be http/https and the resolved host must not be
+     private/loopback/link-local, else block (bad_scheme / ssrf_blocked)
+   - send_email: recipient must be on the allowlist, else block
+     (recipient_not_allowed)
+4. Only for send_email, only if step 3 passed: the existing, unmodified
+   Scanner scans the body. high_risk -> block (prompt_injection); review ->
+   review (held + logged, no UI, not executed in this version); allow -> pass.
+
+Tool names and structured arguments (paths, URLs, hosts, recipients) are never
+fed to the Scanner - only send_email's free-text body, which is what it was
+trained to detect. This boundary is the sole entrypoint to these three tools;
+no other route exposes them.

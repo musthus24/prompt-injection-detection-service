@@ -1,0 +1,1 @@
+These are demo sandbox notes for the MCP read_file tool. Nothing sensitive here.
